@@ -43,28 +43,61 @@ const Index = () => {
     setError(null);
 
     try {
-      const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error("API key not configured. Please add VITE_OPENWEATHER_API_KEY to your environment variables.");
-      }
-
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+      // First, get coordinates from city name using Open-Meteo Geocoding API
+      const geoResponse = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
           location
-        )}&units=metric&appid=${apiKey}`
+        )}&count=1&language=en&format=json`
       );
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("City not found. Please check the spelling and try again.");
-        }
+      if (!geoResponse.ok) {
+        throw new Error("Failed to fetch location data. Please try again later.");
+      }
+
+      const geoData = await geoResponse.json();
+      
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error("City not found. Please check the spelling and try again.");
+      }
+
+      const { latitude, longitude, name, country } = geoData.results[0];
+
+      // Then, get weather data using coordinates
+      const weatherResponse = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=auto`
+      );
+
+      if (!weatherResponse.ok) {
         throw new Error("Failed to fetch weather data. Please try again later.");
       }
 
-      const data: WeatherData = await response.json();
-      setWeatherData(data);
-      toast.success(`Weather data loaded for ${data.name}`);
+      const weatherData = await weatherResponse.json();
+      
+      // Transform Open-Meteo data to match our WeatherData interface
+      const transformedData: WeatherData = {
+        name,
+        sys: {
+          country,
+          sunrise: new Date(weatherData.daily.sunrise[0]).getTime() / 1000,
+          sunset: new Date(weatherData.daily.sunset[0]).getTime() / 1000,
+        },
+        main: {
+          temp: weatherData.current.temperature_2m,
+          humidity: weatherData.current.relative_humidity_2m,
+        },
+        weather: [
+          {
+            description: getWeatherDescription(weatherData.current.weather_code),
+            main: getWeatherMain(weatherData.current.weather_code),
+          },
+        ],
+        wind: {
+          speed: weatherData.current.wind_speed_10m,
+        },
+      };
+
+      setWeatherData(transformedData);
+      toast.success(`Weather data loaded for ${name}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
@@ -72,6 +105,49 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to convert WMO weather codes to descriptions
+  const getWeatherDescription = (code: number): string => {
+    const descriptions: Record<number, string> = {
+      0: "clear sky",
+      1: "mainly clear",
+      2: "partly cloudy",
+      3: "overcast",
+      45: "foggy",
+      48: "depositing rime fog",
+      51: "light drizzle",
+      53: "moderate drizzle",
+      55: "dense drizzle",
+      61: "slight rain",
+      63: "moderate rain",
+      65: "heavy rain",
+      71: "slight snow",
+      73: "moderate snow",
+      75: "heavy snow",
+      77: "snow grains",
+      80: "slight rain showers",
+      81: "moderate rain showers",
+      82: "violent rain showers",
+      85: "slight snow showers",
+      86: "heavy snow showers",
+      95: "thunderstorm",
+      96: "thunderstorm with slight hail",
+      99: "thunderstorm with heavy hail",
+    };
+    return descriptions[code] || "unknown";
+  };
+
+  const getWeatherMain = (code: number): string => {
+    if (code === 0 || code === 1) return "Clear";
+    if (code === 2 || code === 3) return "Clouds";
+    if (code >= 45 && code <= 48) return "Fog";
+    if (code >= 51 && code <= 67) return "Rain";
+    if (code >= 71 && code <= 77) return "Snow";
+    if (code >= 80 && code <= 82) return "Rain";
+    if (code >= 85 && code <= 86) return "Snow";
+    if (code >= 95) return "Thunderstorm";
+    return "Unknown";
   };
 
   return (
