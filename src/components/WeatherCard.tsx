@@ -25,7 +25,7 @@ interface WeatherCardProps {
   data: WeatherData;
 }
 
-const WeatherCard = ({ data }: WeatherCardProps) => {
+export const WeatherCard = ({ data }: WeatherCardProps) => {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleTimeString("en-US", {
       hour: "2-digit",
