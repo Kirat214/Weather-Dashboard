@@ -1,35 +1,110 @@
-import { useState } from "react";
-import { Search, CloudRain, Loader2, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, CloudRain, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import WeatherCard from "@/components/WeatherCard";
+import { DailyForecast } from "@/components/DailyForecast";
+import { HourlyForecast } from "@/components/HourlyForecast";
+import { UnitsToggle } from "@/components/UnitsToggle";
 import { toast } from "sonner";
-
-interface WeatherData {
-  name: string;
-  sys: {
-    country: string;
-    sunrise: number;
-    sunset: number;
-  };
-  main: {
-    temp: number;
-    humidity: number;
-  };
-  weather: Array<{
-    description: string;
-    main: string;
-  }>;
-  wind: {
-    speed: number;
-  };
-}
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { getBackgroundGradient, getWeatherDescription, getWeatherMain } from "@/utils/weatherUtils";
+import type { ExtendedWeatherData } from "@/types/weather";
 
 const Index = () => {
   const [location, setLocation] = useState("");
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherData, setWeatherData] = useState<ExtendedWeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backgroundGradient, setBackgroundGradient] = useState<string>('var(--gradient-sky)');
+  const { latitude, longitude, getCurrentLocation, loading: geoLoading } = useGeolocation();
+
+  useEffect(() => {
+    if (latitude && longitude) {
+      fetchWeatherByCoords(latitude, longitude);
+    }
+  }, [latitude, longitude]);
+
+  const fetchWeatherByCoords = async (lat: number, lon: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const geoResponse = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`
+      );
+      
+      const geoData = await geoResponse.json();
+      const cityName = geoData.results?.[0]?.name || "Current Location";
+      
+      await fetchWeatherData(lat, lon, cityName, geoData.results?.[0]?.country || "");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch weather";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWeatherData = async (lat: number, lon: number, name: string, country: string) => {
+    const weatherResponse = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,weather_code,wind_speed_10m,uv_index&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,uv_index_max&timezone=auto&forecast_days=7`
+    );
+
+    if (!weatherResponse.ok) {
+      throw new Error("Failed to fetch weather data. Please try again later.");
+    }
+
+    const data = await weatherResponse.json();
+    
+    const transformedData: ExtendedWeatherData = {
+      name,
+      sys: {
+        country,
+        sunrise: new Date(data.daily.sunrise[0]).getTime() / 1000,
+        sunset: new Date(data.daily.sunset[0]).getTime() / 1000,
+      },
+      main: {
+        temp: data.current.temperature_2m,
+        humidity: data.current.relative_humidity_2m,
+        feels_like: data.current.apparent_temperature,
+        pressure: data.current.pressure_msl,
+      },
+      weather: [
+        {
+          description: getWeatherDescription(data.current.weather_code),
+          main: getWeatherMain(data.current.weather_code),
+          id: data.current.weather_code,
+        },
+      ],
+      wind: {
+        speed: data.current.wind_speed_10m,
+      },
+      visibility: 10000,
+      uv_index: data.daily.uv_index_max[0],
+      daily: data.daily.time.map((date: string, index: number) => ({
+        date,
+        temp_max: data.daily.temperature_2m_max[index],
+        temp_min: data.daily.temperature_2m_min[index],
+        weather_code: data.daily.weather_code[index],
+        precipitation_probability: data.daily.precipitation_probability_max[index],
+      })),
+      hourly: data.hourly.time.slice(0, 24).map((time: string, index: number) => ({
+        time,
+        temperature: data.hourly.temperature_2m[index],
+        weather_code: data.hourly.weather_code[index],
+        precipitation_probability: data.hourly.precipitation_probability[index],
+      })),
+    };
+
+    setWeatherData(transformedData);
+    
+    const isDark = document.documentElement.classList.contains('dark');
+    setBackgroundGradient(getBackgroundGradient(transformedData.weather[0].main, isDark));
+    
+    toast.success(`Weather data loaded for ${name}`);
+  };
 
   const fetchWeather = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,42 +137,7 @@ const Index = () => {
 
       const { latitude, longitude, name, country } = geoData.results[0];
 
-      // Then, get weather data using coordinates
-      const weatherResponse = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=auto`
-      );
-
-      if (!weatherResponse.ok) {
-        throw new Error("Failed to fetch weather data. Please try again later.");
-      }
-
-      const weatherData = await weatherResponse.json();
-      
-      // Transform Open-Meteo data to match our WeatherData interface
-      const transformedData: WeatherData = {
-        name,
-        sys: {
-          country,
-          sunrise: new Date(weatherData.daily.sunrise[0]).getTime() / 1000,
-          sunset: new Date(weatherData.daily.sunset[0]).getTime() / 1000,
-        },
-        main: {
-          temp: weatherData.current.temperature_2m,
-          humidity: weatherData.current.relative_humidity_2m,
-        },
-        weather: [
-          {
-            description: getWeatherDescription(weatherData.current.weather_code),
-            main: getWeatherMain(weatherData.current.weather_code),
-          },
-        ],
-        wind: {
-          speed: weatherData.current.wind_speed_10m,
-        },
-      };
-
-      setWeatherData(transformedData);
-      toast.success(`Weather data loaded for ${name}`);
+      await fetchWeatherData(latitude, longitude, name, country);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
@@ -107,67 +147,29 @@ const Index = () => {
     }
   };
 
-  // Helper function to convert WMO weather codes to descriptions
-  const getWeatherDescription = (code: number): string => {
-    const descriptions: Record<number, string> = {
-      0: "clear sky",
-      1: "mainly clear",
-      2: "partly cloudy",
-      3: "overcast",
-      45: "foggy",
-      48: "depositing rime fog",
-      51: "light drizzle",
-      53: "moderate drizzle",
-      55: "dense drizzle",
-      61: "slight rain",
-      63: "moderate rain",
-      65: "heavy rain",
-      71: "slight snow",
-      73: "moderate snow",
-      75: "heavy snow",
-      77: "snow grains",
-      80: "slight rain showers",
-      81: "moderate rain showers",
-      82: "violent rain showers",
-      85: "slight snow showers",
-      86: "heavy snow showers",
-      95: "thunderstorm",
-      96: "thunderstorm with slight hail",
-      99: "thunderstorm with heavy hail",
-    };
-    return descriptions[code] || "unknown";
-  };
-
-  const getWeatherMain = (code: number): string => {
-    if (code === 0 || code === 1) return "Clear";
-    if (code === 2 || code === 3) return "Clouds";
-    if (code >= 45 && code <= 48) return "Fog";
-    if (code >= 51 && code <= 67) return "Rain";
-    if (code >= 71 && code <= 77) return "Snow";
-    if (code >= 80 && code <= 82) return "Rain";
-    if (code >= 85 && code <= 86) return "Snow";
-    if (code >= 95) return "Thunderstorm";
-    return "Unknown";
-  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 bg-[var(--gradient-sky)]">
+    <div 
+      className="min-h-screen transition-all duration-1000"
+      style={{ background: backgroundGradient }}
+    >
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-12">
-        <header className="text-center mb-12 animate-fade-in">
+        <header className="text-center mb-8 animate-fade-in">
           <div className="flex items-center justify-center gap-3 mb-4">
             <CloudRain className="w-12 h-12 text-primary" />
             <h1 className="text-5xl md:text-6xl font-bold text-foreground">
               Weather Dashboard
             </h1>
           </div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
             Get real-time weather information for any city worldwide
           </p>
+          <UnitsToggle />
         </header>
 
         {/* Search Form */}
-        <form onSubmit={fetchWeather} className="max-w-2xl mx-auto mb-12">
+        <form onSubmit={fetchWeather} className="max-w-2xl mx-auto mb-8">
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Input
@@ -180,6 +182,20 @@ const Index = () => {
               />
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             </div>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              disabled={loading || geoLoading}
+              onClick={getCurrentLocation}
+              className="h-14 px-6 bg-card/90 backdrop-blur-sm border-2 hover:bg-card"
+            >
+              {geoLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <MapPin className="w-5 h-5" />
+              )}
+            </Button>
             <Button
               type="submit"
               size="lg"
@@ -213,10 +229,12 @@ const Index = () => {
           </div>
         )}
 
-        {/* Weather Card */}
+        {/* Weather Data */}
         {weatherData && !loading && (
-          <div className="animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
             <WeatherCard data={weatherData} />
+            <HourlyForecast forecast={weatherData.hourly} />
+            <DailyForecast forecast={weatherData.daily} />
           </div>
         )}
 

@@ -1,31 +1,17 @@
-import { Cloud, Droplets, Wind, Sunrise, Sunset, Thermometer } from "lucide-react";
 import { Card } from "@/components/ui/card";
-
-interface WeatherData {
-  name: string;
-  sys: {
-    country: string;
-    sunrise: number;
-    sunset: number;
-  };
-  main: {
-    temp: number;
-    humidity: number;
-  };
-  weather: Array<{
-    description: string;
-    main: string;
-  }>;
-  wind: {
-    speed: number;
-  };
-}
+import { Droplets, Wind, Sunrise, Sunset, Eye, Gauge, Thermometer, Sun } from "lucide-react";
+import { useUnits } from "@/contexts/UnitsContext";
+import { getWeatherIcon } from "@/utils/weatherUtils";
+import type { WeatherData } from "@/types/weather";
 
 interface WeatherCardProps {
   data: WeatherData;
 }
 
-export const WeatherCard = ({ data }: WeatherCardProps) => {
+const WeatherCard = ({ data }: WeatherCardProps) => {
+  const { convertTemperature, convertSpeed, temperatureUnit, speedUnit } = useUnits();
+  const WeatherIcon = getWeatherIcon(data.weather[0].id);
+
   const formatTime = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -34,52 +20,89 @@ export const WeatherCard = ({ data }: WeatherCardProps) => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto p-8 backdrop-blur-lg bg-card/90 border-border/50 shadow-[var(--shadow-card)] transition-all duration-300 hover:shadow-[var(--shadow-glow)]">
-      {/* Location Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-4xl font-bold text-foreground mb-2">
-          {data.name}, {data.sys.country}
-        </h2>
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Cloud className="w-5 h-5" />
-          <p className="text-lg capitalize">{data.weather[0].description}</p>
+    <Card className="max-w-6xl mx-auto p-8 bg-[var(--gradient-card)] backdrop-blur-sm shadow-[var(--shadow-card)] border-border/50">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-4xl font-bold text-foreground mb-2">
+            {data.name}, {data.sys.country}
+          </h2>
+          <p className="text-xl text-muted-foreground capitalize flex items-center gap-2">
+            <WeatherIcon className="w-6 h-6" />
+            {data.weather[0].description}
+          </p>
         </div>
+        <WeatherIcon className="w-20 h-20 text-primary" />
       </div>
 
-      {/* Temperature Display */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-3">
-          <Thermometer className="w-12 h-12 text-primary" />
-          <span className="text-7xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
-            {Math.round(data.main.temp)}°C
-          </span>
+      {/* Temperature */}
+      <div className="text-center mb-10">
+        <div className="text-7xl font-bold text-primary mb-2">
+          {Math.round(convertTemperature(data.main.temp))}°{temperatureUnit === 'celsius' ? 'C' : 'F'}
         </div>
+        <p className="text-lg text-muted-foreground">
+          Feels like {Math.round(convertTemperature(data.main.feels_like))}°{temperatureUnit === 'celsius' ? 'C' : 'F'}
+        </p>
       </div>
 
       {/* Weather Details Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div className="flex flex-col items-center p-4 rounded-lg bg-muted/50 transition-all hover:bg-muted">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
           <Droplets className="w-8 h-8 text-accent mb-2" />
-          <p className="text-sm text-muted-foreground mb-1">Humidity</p>
-          <p className="text-2xl font-semibold text-foreground">{data.main.humidity}%</p>
+          <span className="text-sm text-muted-foreground">Humidity</span>
+          <span className="text-xl font-semibold text-foreground">{data.main.humidity}%</span>
         </div>
 
-        <div className="flex flex-col items-center p-4 rounded-lg bg-muted/50 transition-all hover:bg-muted">
-          <Wind className="w-8 h-8 text-secondary mb-2" />
-          <p className="text-sm text-muted-foreground mb-1">Wind Speed</p>
-          <p className="text-2xl font-semibold text-foreground">{data.wind.speed} m/s</p>
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Wind className="w-8 h-8 text-primary mb-2" />
+          <span className="text-sm text-muted-foreground">Wind Speed</span>
+          <span className="text-xl font-semibold text-foreground">
+            {Math.round(convertSpeed(data.wind.speed))} {speedUnit}
+          </span>
         </div>
 
-        <div className="flex flex-col items-center p-4 rounded-lg bg-muted/50 transition-all hover:bg-muted">
-          <Sunrise className="w-8 h-8 text-primary mb-2" />
-          <p className="text-sm text-muted-foreground mb-1">Sunrise</p>
-          <p className="text-2xl font-semibold text-foreground">{formatTime(data.sys.sunrise)}</p>
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Sunrise className="w-8 h-8 text-secondary mb-2" />
+          <span className="text-sm text-muted-foreground">Sunrise</span>
+          <span className="text-xl font-semibold text-foreground">
+            {formatTime(data.sys.sunrise)}
+          </span>
         </div>
 
-        <div className="flex flex-col items-center p-4 rounded-lg bg-muted/50 transition-all hover:bg-muted">
-          <Sunset className="w-8 h-8 text-destructive mb-2" />
-          <p className="text-sm text-muted-foreground mb-1">Sunset</p>
-          <p className="text-2xl font-semibold text-foreground">{formatTime(data.sys.sunset)}</p>
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Sunset className="w-8 h-8 text-secondary mb-2" />
+          <span className="text-sm text-muted-foreground">Sunset</span>
+          <span className="text-xl font-semibold text-foreground">
+            {formatTime(data.sys.sunset)}
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Eye className="w-8 h-8 text-primary mb-2" />
+          <span className="text-sm text-muted-foreground">Visibility</span>
+          <span className="text-xl font-semibold text-foreground">
+            {(data.visibility / 1000).toFixed(1)} km
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Gauge className="w-8 h-8 text-accent mb-2" />
+          <span className="text-sm text-muted-foreground">Pressure</span>
+          <span className="text-xl font-semibold text-foreground">{data.main.pressure} hPa</span>
+        </div>
+
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Thermometer className="w-8 h-8 text-destructive mb-2" />
+          <span className="text-sm text-muted-foreground">Feels Like</span>
+          <span className="text-xl font-semibold text-foreground">
+            {Math.round(convertTemperature(data.main.feels_like))}°
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center p-4 bg-card/50 rounded-lg border border-border/30 hover:bg-card/80 transition-all">
+          <Sun className="w-8 h-8 text-secondary mb-2" />
+          <span className="text-sm text-muted-foreground">UV Index</span>
+          <span className="text-xl font-semibold text-foreground">{data.uv_index}</span>
         </div>
       </div>
     </Card>
