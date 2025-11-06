@@ -19,33 +19,34 @@ const Index = () => {
   const [backgroundGradient, setBackgroundGradient] = useState<string>('var(--gradient-sky)');
   const { latitude, longitude, getCurrentLocation, loading: geoLoading } = useGeolocation();
 
+
   useEffect(() => {
+    const fetchWeatherByCoords = async (lat: number, lon: number) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const geoResponse = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`
+        );
+
+        const geoData = await geoResponse.json();
+        const cityName = geoData.results?.[0]?.name || "Current Location";
+
+        await fetchWeatherData(lat, lon, cityName, geoData.results?.[0]?.country || "");
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to fetch weather";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
     if (latitude && longitude) {
       fetchWeatherByCoords(latitude, longitude);
     }
-  }, [latitude, longitude]);
+  });
 
-  const fetchWeatherByCoords = async (lat: number, lon: number) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const geoResponse = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`
-      );
-      
-      const geoData = await geoResponse.json();
-      const cityName = geoData.results?.[0]?.name || "Current Location";
-      
-      await fetchWeatherData(lat, lon, cityName, geoData.results?.[0]?.country || "");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch weather";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchWeatherData = async (lat: number, lon: number, name: string, country: string) => {
     const weatherResponse = await fetch(
@@ -57,7 +58,7 @@ const Index = () => {
     }
 
     const data = await weatherResponse.json();
-    
+
     const transformedData: ExtendedWeatherData = {
       name,
       sys: {
@@ -99,16 +100,16 @@ const Index = () => {
     };
 
     setWeatherData(transformedData);
-    
+
     const isDark = document.documentElement.classList.contains('dark');
     setBackgroundGradient(getBackgroundGradient(transformedData.weather[0].main, isDark));
-    
+
     toast.success(`Weather data loaded for ${name}`);
   };
 
   const fetchWeather = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!location.trim()) {
       toast.error("Please enter a city name");
       return;
@@ -130,7 +131,7 @@ const Index = () => {
       }
 
       const geoData = await geoResponse.json();
-      
+
       if (!geoData.results || geoData.results.length === 0) {
         throw new Error("City not found. Please check the spelling and try again.");
       }
@@ -149,7 +150,7 @@ const Index = () => {
 
 
   return (
-    <div 
+    <div
       className="min-h-screen transition-all duration-1000"
       style={{ background: backgroundGradient }}
     >

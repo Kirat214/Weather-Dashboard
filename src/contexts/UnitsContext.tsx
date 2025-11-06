@@ -54,6 +54,7 @@ export const UnitsProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useUnits = () => {
   const context = useContext(UnitsContext);
   if (!context) {
