@@ -20,10 +20,10 @@ export default defineConfig({
       // ✅ Coverage gates — Vitest v1+ expects them under `thresholds`
       // (If you're on an older version and this doesn't work, see Option 2)
       thresholds: {
-        statements: 35,
-        branches: 12,
-        functions: 37,
-        lines: 41,
+        statements: 70,
+        branches: 70,
+        functions: 70,
+        lines: 70,
       },
 
       // Optional: include files not hit by tests to compute coverage more honestly
