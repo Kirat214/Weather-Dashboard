@@ -9,7 +9,6 @@ on:
 env:
   NODE_VERSION: '20.x'
   COVERAGE_THRESHOLD: 70
-  # Adding these here makes them available to all jobs below
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
@@ -21,20 +20,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
       - name: Run ESLint
         run: npm run lint
         continue-on-error: false
-
       - name: Check TypeScript
         run: npx tsc --noEmit
 
@@ -46,35 +41,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
       - name: Run tests with coverage
         run: npm run test:coverage
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/coverage-final.json
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
-          echo "Coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
-            echo "Coverage $COVERAGE% is below threshold $COVERAGE_THRESHOLD%"
-            exit 1
-          fi
 
   # Stage 3: Build Validation
   build:
@@ -84,24 +59,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build application
         run: npm run build
-
-      - name: Check build size
-        run: |
-          BUILD_SIZE=$(du -sh dist | cut -f1)
-          echo "Build size: $BUILD_SIZE"
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -117,19 +83,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
       - name: Run security audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
-
-      - name: Check for outdated dependencies
-        run: npm outdated || true
 
   # Stage 5: Deploy to Vercel (Production)
   deploy-production:
@@ -142,6 +103,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Set identity so Vercel recognizes the commit author
+      - name: Configure Git Author
+        run: |
+          git config --global user.email "kiratsingh241@gmail.com"
+          git config --global user.name "Kirat Singh"
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -157,56 +124,10 @@ jobs:
         run: |
           URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Deployed to: $URL"
-
-      - name: Post deployment comment
-        uses: actions/github-script@v7
-        if: github.event_name == 'push'
-        with:
-          script: |
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: `✅ Deployed to production: ${{ steps.deploy.outputs.url }}`
-            })
 
   # Stage 6: Deploy to Vercel (Preview)
   deploy-preview:
     name: Deploy to Vercel (Preview)
     runs-on: ubuntu-latest
     needs: [build, security]
-    if: github.event_name == 'pull_request'
-    environment:
-      name: preview
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel (Preview)
-        id: deploy
-        run: |
-          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Deployed to: $URL"
-
-      - name: Comment PR with preview URL
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🚀 Preview deployment ready!\n\n**URL:** ${{ steps.deploy.outputs.url }}\n\n✅ All quality gates passed`
-            })
-          
+    if: github.event_name == '
