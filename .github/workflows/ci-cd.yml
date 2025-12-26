@@ -76,7 +76,7 @@ jobs:
         run: npm ci
       - name: Build application
         run: npm run build
-        
+
 Terraform-check:
     name: "IaC: Terraform Validation"
     runs-on: ubuntu-latest
@@ -100,7 +100,7 @@ Terraform-check:
         working-directory: ./terraform
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
+          
   security:
     name: Security Audit
     runs-on: ubuntu-latest
