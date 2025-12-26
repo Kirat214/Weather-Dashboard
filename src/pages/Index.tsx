@@ -160,7 +160,7 @@ const Index = () => {
           <div className="flex items-center justify-center gap-3 mb-4">
             <CloudRain className="w-12 h-12 text-primary" />
             <h1 className="text-5xl md:text-6xl font-bold text-foreground">
-              Weather Dashboard
+              Weather  Dashboard
             </h1>
           </div>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
