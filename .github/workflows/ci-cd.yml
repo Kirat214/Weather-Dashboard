@@ -76,7 +76,7 @@ jobs:
         working-directory: ./terraform
       - name: Terraform Plan
         run: terraform plan
-        working-directory: ./terraform
+        working-directory: ./iac
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
