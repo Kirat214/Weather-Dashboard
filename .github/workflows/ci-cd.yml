@@ -74,7 +74,8 @@ jobs:
       - name: Terraform Format Check
         run: terraform fmt -check
         working-directory: ./iac/IAC
-      - name: Terraform Plan
+      - - name: Terraform Plan
+        # We removed the -detailed-exitcode flag to prevent the Code 3 error
         run: terraform plan
         working-directory: ./iac/IAC
         env:
