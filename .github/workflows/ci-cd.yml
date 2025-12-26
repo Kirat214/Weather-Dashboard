@@ -76,6 +76,30 @@ jobs:
         run: npm ci
       - name: Build application
         run: npm run build
+        
+Terraform-check:
+    name: "IaC: Terraform Validation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        working-directory: ./terraform
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: ./terraform
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   security:
     name: Security Audit
