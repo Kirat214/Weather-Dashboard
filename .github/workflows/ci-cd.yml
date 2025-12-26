@@ -77,7 +77,8 @@ jobs:
         run: terraform fmt -check
         working-directory: ./iac/IAC
       - name: Terraform Plan
-        run: terraform plan -detailed-exitcode || [ $? -eq 3 ]
+        # REMOVED -detailed-exitcode to ensure it returns 0 on success
+        run: terraform plan
         working-directory: ./iac/IAC
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
