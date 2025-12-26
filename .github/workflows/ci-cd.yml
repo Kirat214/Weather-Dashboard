@@ -70,13 +70,13 @@ jobs:
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
         run: terraform init
-        working-directory: ./iac
+        working-directory: ./iac/IAC
       - name: Terraform Format Check
         run: terraform fmt -check
-        working-directory: ./iac
+        working-directory: ./iac/IAC
       - name: Terraform Plan
         run: terraform plan
-        working-directory: ./iac
+        working-directory: ./iac/IAC
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
