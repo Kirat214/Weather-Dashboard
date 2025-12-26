@@ -58,8 +58,8 @@ jobs:
             echo "No coverage file found"
           fi
         continue-on-error: true
-
- terraform-check:
+        
+    terraform-check:
     name: "IaC: Terraform Validation"
     runs-on: ubuntu-latest
     needs: code-quality
