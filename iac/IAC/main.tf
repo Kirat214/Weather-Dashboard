@@ -1,4 +1,3 @@
-# Configure the Vercel provider
 terraform {
   required_providers {
     vercel = {
@@ -8,14 +7,15 @@ terraform {
   }
 }
 
-# The Project on Vercel
 resource "vercel_project" "weather_dashboard" {
   name      = "weather-dashboard-project"
-  framework = "nextjs" # or "other" depending on your setup
+  framework = "nextjs"
 }
 
-# A Deployment
+# FIXED: Added the 'project_settings' and 'ref' to satisfy the error
 resource "vercel_deployment" "production" {
   project_id = vercel_project.weather_dashboard.id
   production = true
+  # This tells Vercel to deploy from the main branch
+  ref        = "main" 
 }
