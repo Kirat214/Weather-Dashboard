@@ -70,10 +70,10 @@ jobs:
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
         run: terraform init
-        working-directory: ./terraform
+        working-directory: ./iac
       - name: Terraform Format Check
         run: terraform fmt -check
-        working-directory: ./terraform
+        working-directory: ./iac
       - name: Terraform Plan
         run: terraform plan
         working-directory: ./iac
